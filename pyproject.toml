@@ -4,7 +4,13 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "ipyvtklink>=0.2.3",
     "numpy>=2.2.3",
+    "openai>=1.64.0",
     "plotly>=6.0.0",
+    "pyvista>=0.44.2",
     "streamlit>=1.42.2",
+    "trame>=3.8.0",
+    "vtk>=9.3.1",
+    "wslink>=2.3.2",
 ]

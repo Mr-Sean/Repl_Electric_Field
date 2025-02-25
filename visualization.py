@@ -1,6 +1,6 @@
 import numpy as np
-import plotly.graph_objects as go
-import time
+import json
+import streamlit as st
 
 class FieldVisualizer:
     def __init__(self):
@@ -8,91 +8,111 @@ class FieldVisualizer:
         self.colors = {
             'positive': '#FF6B6B',
             'negative': '#4ECDC4',
-            'neutral': '#95A5A6',
             'vectors': '#2C3E50'
         }
 
-    def create_plot(self, field, show_vectors=True):
-        """
-        Create the 3D field visualization plot with continuous animation
+    def create_scene(self, field, show_vectors=True):
+        """Create the 3D visualization data"""
+        # Create spherical grid with adaptive resolution
+        radius = 2.0
+        base_points = 15  # Reduced from 30 for better performance
 
-        Args:
-            field (ElectricField): Electric field calculator
-            show_vectors (bool): Whether to show field vectors
+        # Calculate grid points on sphere surface
+        phi = np.linspace(0, 2*np.pi, base_points)
+        theta = np.linspace(0, np.pi, base_points)
+        phi, theta = np.meshgrid(phi, theta)
 
-        Returns:
-            go.Figure: Plotly figure object
-        """
-        # Calculate field on spherical grid
-        radius = 2.0  # Sphere radius
-        n_points = 20
-        X, Y, Z, Ex, Ey, Ez = field.calculate_field_grid(radius, n_points)
+        # Convert to Cartesian coordinates
+        x = radius * np.sin(theta) * np.cos(phi)
+        y = radius * np.sin(theta) * np.sin(phi)
+        z = radius * np.cos(theta)
 
-        # Normalize field vectors
-        E_magnitude = np.sqrt(Ex**2 + Ey**2 + Ez**2)
-        Ex_norm = Ex / (E_magnitude + 1e-10)
-        Ey_norm = Ey / (E_magnitude + 1e-10)
-        Ez_norm = Ez / (E_magnitude + 1e-10)
+        # Calculate field vectors with adaptive sampling
+        vectors = []
+        points = []
 
-        # Create data list for the figure
-        data = []
+        # Calculate importance factor for each point
+        for i in range(base_points):
+            for j in range(base_points):
+                point = np.array([x[i,j], y[i,j], z[i,j]])
+                distance = np.linalg.norm(point - field.position)
 
-        # Calculate current animation phase based on time
-        t = time.time()
-        pulse_factor = 1 + 0.3 * np.sin(2 * np.pi * t)
+                # Add more detail near the charge
+                if distance < radius * 0.5:
+                    # Calculate field at higher resolution near charge
+                    n_detail = 2  # Subdivision factor
+                    for di in range(n_detail):
+                        for dj in range(n_detail):
+                            # Interpolate position
+                            fi = i + di/n_detail
+                            fj = j + dj/n_detail
+                            detail_point = np.array([
+                                radius * np.sin(theta[0,0] + fi/base_points * np.pi) * np.cos(phi[0,0] + fj/base_points * 2*np.pi),
+                                radius * np.sin(theta[0,0] + fi/base_points * np.pi) * np.sin(phi[0,0] + fj/base_points * 2*np.pi),
+                                radius * np.cos(theta[0,0] + fi/base_points * np.pi)
+                            ])
+                            E = field.calculate_field_at_point(detail_point)
+                            E_norm = E / (np.linalg.norm(E) + 1e-10)
+                            vectors.append(E_norm)
+                            points.append(detail_point.tolist())
+                else:
+                    # Use base resolution for points far from charge
+                    E = field.calculate_field_at_point(point)
+                    E_norm = E / (np.linalg.norm(E) + 1e-10)
+                    vectors.append(E_norm)
+                    points.append(point.tolist())
 
-        if show_vectors:
-            scale = 0.2 * pulse_factor  # Scale factor for arrow size
-            for i in range(n_points):
-                for j in range(n_points):
-                    x_start = X[i,j]
-                    y_start = Y[i,j]
-                    z_start = Z[i,j]
-                    dx = Ex_norm[i,j] * scale
-                    dy = Ey_norm[i,j] * scale
-                    dz = Ez_norm[i,j] * scale
+        # Create scene data
+        scene_data = {
+            'points': points,
+            'vectors': vectors,
+            'charge': {
+                'position': field.position.tolist(),
+                'value': field.charge,
+            },
+            'radius': radius,
+            'showVectors': show_vectors,
+        }
 
-                    # 3D arrow
-                    data.append(go.Scatter3d(
-                        x=[x_start, x_start + dx],
-                        y=[y_start, y_start + dy],
-                        z=[z_start, z_start + dz],
-                        mode='lines',
-                        line=dict(color=self.colors['vectors'], width=2 * pulse_factor),
-                        showlegend=False
-                    ))
+        return scene_data
 
-        # Add charge point
-        data.append(go.Scatter3d(
-            x=[field.position[0]],
-            y=[field.position[1]],
-            z=[field.position[2]],
-            mode='markers',
-            marker=dict(
-                size=15 * pulse_factor,
-                color=self.colors['positive'] if field.charge > 0 else self.colors['negative']
-            ),
-            name='Point Charge'
-        ))
+    def create_visualization(self, field, show_vectors=True):
+        """Create the 3D visualization data"""
+        scene_data = self.create_scene(field, show_vectors)
+        return scene_data
 
-        # Create figure
-        fig = go.Figure(data=data)
+# Example usage in a Streamlit app:
+# (assuming you have a 'field' object defined elsewhere)
 
-        # Update layout with 3D settings
-        fig.update_layout(
-            scene=dict(
-                xaxis_title="X Position (m)",
-                yaxis_title="Y Position (m)",
-                zaxis_title="Z Position (m)",
-                aspectmode='cube',
-                camera=dict(
-                    up=dict(x=0, y=0, z=1),
-                    center=dict(x=0, y=0, z=0),
-                    eye=dict(x=1.5, y=1.5, z=1.5)
-                )
-            ),
-            showlegend=True,
-            title="3D Electric Field Visualization"
-        )
+st.title("3D Electric Field Visualization")
 
-        return fig
+# Dummy field object for demonstration
+class DummyField:
+    def __init__(self):
+        self.position = np.array([0, 0, 0])
+        self.charge = 1.0
+
+    def calculate_field_at_point(self, point):
+        distance = np.linalg.norm(point)
+        if distance > 1e-6:
+            return point / distance**3
+        else:
+            return np.array([0,0,0])
+
+field = DummyField()
+visualizer = FieldVisualizer()
+visualization_data = visualizer.create_visualization(field)
+
+# Display the JSON output (you'll need to adapt this part to display it correctly in Streamlit)
+st.write(visualization_data)
+
+#Example of how to display in HTML using Streamlit
+st.components.v1.html(
+    f"""
+    <div id="visualization"></div>
+    <script>
+      const sceneData = {json.dumps(visualization_data)};
+      // Add your 3D visualization logic here using sceneData and a library like Three.js
+    </script>
+    """
+)
