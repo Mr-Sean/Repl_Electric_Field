@@ -36,7 +36,6 @@ def main():
 
     # Visualization controls
     st.sidebar.subheader("Visualization Settings")
-    show_field_lines = st.sidebar.checkbox("Show Field Lines", value=True)
     show_vectors = st.sidebar.checkbox("Show Field Vectors", value=True)
 
     # Create field calculator
@@ -50,7 +49,6 @@ def main():
 
     fig = visualizer.create_plot(
         field,
-        show_field_lines=show_field_lines,
         show_vectors=show_vectors
     )
     st.plotly_chart(fig, use_container_width=True)

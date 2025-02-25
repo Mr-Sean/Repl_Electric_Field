@@ -11,13 +11,12 @@ class FieldVisualizer:
             'vectors': '#2C3E50'
         }
 
-    def create_plot(self, field, show_field_lines=True, show_vectors=True):
+    def create_plot(self, field, show_vectors=True):
         """
         Create the 3D field visualization plot with animation
 
         Args:
             field (ElectricField): Electric field calculator
-            show_field_lines (bool): Whether to show field lines
             show_vectors (bool): Whether to show field vectors
 
         Returns:
@@ -37,7 +36,7 @@ class FieldVisualizer:
         # Create initial frame data
         frame_data = []
         frames = []
-        n_frames = 20
+        n_frames = 60  # Increased frame count for smoother animation
 
         if show_vectors:
             scale = 0.2  # Initial scale factor for arrow size
@@ -60,50 +59,6 @@ class FieldVisualizer:
                         showlegend=False
                     ))
 
-        if show_field_lines:
-            # Create field lines along spherical coordinates
-            n_lines = 16
-            phi = np.linspace(0, 2*np.pi, n_lines)
-            theta = np.linspace(0, np.pi, n_lines//2)
-
-            for p in phi:
-                for t in theta:
-                    x_start = 0.2 * np.sin(t) * np.cos(p)
-                    y_start = 0.2 * np.sin(t) * np.sin(p)
-                    z_start = 0.2 * np.cos(t)
-
-                    x_line = [x_start]
-                    y_line = [y_start]
-                    z_line = [z_start]
-
-                    for _ in range(50):
-                        point = np.array([x_line[-1], y_line[-1], z_line[-1]])
-                        E = field.calculate_field_at_point(point)
-                        E_norm = E / (np.linalg.norm(E) + 1e-10)
-
-                        new_x = x_line[-1] + 0.1 * E_norm[0]
-                        new_y = y_line[-1] + 0.1 * E_norm[1]
-                        new_z = z_line[-1] + 0.1 * E_norm[2]
-
-                        if np.sqrt(new_x**2 + new_y**2 + new_z**2) > radius:
-                            break
-
-                        x_line.append(new_x)
-                        y_line.append(new_y)
-                        z_line.append(new_z)
-
-                    frame_data.append(go.Scatter3d(
-                        x=x_line,
-                        y=y_line,
-                        z=z_line,
-                        mode='lines',
-                        line=dict(
-                            color=self.colors['positive'] if field.charge > 0 else self.colors['negative'],
-                            width=2
-                        ),
-                        showlegend=False
-                    ))
-
         # Add charge point
         frame_data.append(go.Scatter3d(
             x=[field.position[0]],
@@ -120,7 +75,8 @@ class FieldVisualizer:
         # Create frames for animation
         for frame_idx in range(n_frames):
             frame_traces = []
-            pulse_factor = 1 + 0.5 * np.sin(2 * np.pi * frame_idx / n_frames)
+            # Smoother pulsation using sine wave
+            pulse_factor = 1 + 0.3 * np.sin(2 * np.pi * frame_idx / n_frames)
 
             for trace in frame_data:
                 # Create new trace with updated properties
@@ -181,9 +137,11 @@ class FieldVisualizer:
                     'label': 'Play',
                     'method': 'animate',
                     'args': [None, {
-                        'frame': {'duration': 50, 'redraw': True},
+                        'frame': {'duration': 30, 'redraw': True},  # Faster frame rate
                         'fromcurrent': True,
-                        'transition': {'duration': 0}
+                        'transition': {'duration': 0},
+                        'mode': 'immediate',
+                        'loop': True  # Enable continuous looping
                     }]
                 }]
             }]
