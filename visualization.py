@@ -13,65 +13,39 @@ class FieldVisualizer:
 
     def create_scene(self, field, show_vectors=True):
         """Create the 3D visualization data"""
-        # Create spherical grid with adaptive resolution
-        radius = 2.0
-        base_points = 15  # Reduced from 30 for better performance
+        # Calculate field on spherical grid
+        radius = 2.0  # Sphere radius
+        n_points = 20
+        X, Y, Z, Ex, Ey, Ez = field.calculate_field_grid(radius, n_points)
 
-        # Calculate grid points on sphere surface
-        phi = np.linspace(0, 2*np.pi, base_points)
-        theta = np.linspace(0, np.pi, base_points)
-        phi, theta = np.meshgrid(phi, theta)
-
-        # Convert to Cartesian coordinates
-        x = radius * np.sin(theta) * np.cos(phi)
-        y = radius * np.sin(theta) * np.sin(phi)
-        z = radius * np.cos(theta)
-
-        # Calculate field vectors with adaptive sampling
-        vectors = []
+        # Convert grid points and field vectors to lists
         points = []
+        vectors = []
+        for i in range(n_points):
+            for j in range(n_points):
+                point = [float(X[i,j]), float(Y[i,j]), float(Z[i,j])]
+                E = [float(Ex[i,j]), float(Ey[i,j]), float(Ez[i,j])]
 
-        # Calculate importance factor for each point
-        for i in range(base_points):
-            for j in range(base_points):
-                point = np.array([x[i,j], y[i,j], z[i,j]])
-                distance = np.linalg.norm(point - field.position)
-
-                # Add more detail near the charge
-                if distance < radius * 0.5:
-                    # Calculate field at higher resolution near charge
-                    n_detail = 2  # Subdivision factor
-                    for di in range(n_detail):
-                        for dj in range(n_detail):
-                            # Interpolate position
-                            fi = i + di/n_detail
-                            fj = j + dj/n_detail
-                            detail_point = np.array([
-                                radius * np.sin(theta[0,0] + fi/base_points * np.pi) * np.cos(phi[0,0] + fj/base_points * 2*np.pi),
-                                radius * np.sin(theta[0,0] + fi/base_points * np.pi) * np.sin(phi[0,0] + fj/base_points * 2*np.pi),
-                                radius * np.cos(theta[0,0] + fi/base_points * np.pi)
-                            ])
-                            E = field.calculate_field_at_point(detail_point)
-                            E_norm = E / (np.linalg.norm(E) + 1e-10)
-                            vectors.append(E_norm)
-                            points.append(detail_point.tolist())
+                # Normalize field vector
+                E_mag = np.sqrt(sum(x*x for x in E))
+                if E_mag > 1e-10:
+                    E = [x/E_mag for x in E]
                 else:
-                    # Use base resolution for points far from charge
-                    E = field.calculate_field_at_point(point)
-                    E_norm = E / (np.linalg.norm(E) + 1e-10)
-                    vectors.append(E_norm)
-                    points.append(point.tolist())
+                    E = [0.0, 0.0, 0.0]
 
-        # Create scene data
+                points.append(point)
+                vectors.append(E)
+
+        # Create scene data with all values converted to standard Python types
         scene_data = {
             'points': points,
             'vectors': vectors,
             'charge': {
-                'position': field.position.tolist(),
-                'value': field.charge,
+                'position': [float(x) for x in field.position],
+                'value': float(field.charge),
             },
-            'radius': radius,
-            'showVectors': show_vectors,
+            'radius': float(radius),
+            'showVectors': bool(show_vectors),
         }
 
         return scene_data
@@ -98,6 +72,28 @@ class DummyField:
             return point / distance**3
         else:
             return np.array([0,0,0])
+
+    def calculate_field_grid(self, radius, n_points):
+        phi = np.linspace(0, 2*np.pi, n_points)
+        theta = np.linspace(0, np.pi, n_points)
+        phi, theta = np.meshgrid(phi, theta)
+        x = radius * np.sin(theta) * np.cos(phi)
+        y = radius * np.sin(theta) * np.sin(phi)
+        z = radius * np.cos(theta)
+        Ex = np.zeros((n_points,n_points))
+        Ey = np.zeros((n_points,n_points))
+        Ez = np.zeros((n_points,n_points))
+        for i in range(n_points):
+            for j in range(n_points):
+                point = np.array([x[i,j],y[i,j],z[i,j]])
+                E = self.calculate_field_at_point(point)
+                Ex[i,j] = E[0]
+                Ey[i,j] = E[1]
+                Ez[i,j] = E[2]
+
+        return x, y, z, Ex, Ey, Ez
+
+
 
 field = DummyField()
 visualizer = FieldVisualizer()
