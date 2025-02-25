@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import time
 from electric_field import ElectricField
 from visualization import FieldVisualizer
 from utils import format_scientific_notation
@@ -12,6 +13,10 @@ st.set_page_config(
 st.title("3D Electric Field Visualizer")
 
 def main():
+    # Initialize session state for animation
+    if 'last_update' not in st.session_state:
+        st.session_state.last_update = time.time()
+
     # Sidebar controls
     st.sidebar.header("Controls")
 
@@ -47,6 +52,7 @@ def main():
     # Main display area
     st.subheader("Electric Field Visualization")
 
+    # Create and display the plot with continuous animation
     fig = visualizer.create_plot(
         field,
         show_vectors=show_vectors
@@ -69,6 +75,10 @@ def main():
         st.markdown("**Field Properties**")
         st.write("Field strength at origin:")
         st.write(f"{format_scientific_notation(E_magnitude)} N/C")
+
+    # Force rerun for continuous animation
+    time.sleep(0.05)  # Small delay to control update rate
+    st.rerun()
 
 if __name__ == "__main__":
     main()

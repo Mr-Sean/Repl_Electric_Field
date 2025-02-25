@@ -1,5 +1,6 @@
 import numpy as np
 import plotly.graph_objects as go
+import time
 
 class FieldVisualizer:
     def __init__(self):
@@ -13,7 +14,7 @@ class FieldVisualizer:
 
     def create_plot(self, field, show_vectors=True):
         """
-        Create the 3D field visualization plot with animation
+        Create the 3D field visualization plot with continuous animation
 
         Args:
             field (ElectricField): Electric field calculator
@@ -33,13 +34,15 @@ class FieldVisualizer:
         Ey_norm = Ey / (E_magnitude + 1e-10)
         Ez_norm = Ez / (E_magnitude + 1e-10)
 
-        # Create initial frame data
-        frame_data = []
-        frames = []
-        n_frames = 60  # Increased frame count for smoother animation
+        # Create data list for the figure
+        data = []
+
+        # Calculate current animation phase based on time
+        t = time.time()
+        pulse_factor = 1 + 0.3 * np.sin(2 * np.pi * t)
 
         if show_vectors:
-            scale = 0.2  # Initial scale factor for arrow size
+            scale = 0.2 * pulse_factor  # Scale factor for arrow size
             for i in range(n_points):
                 for j in range(n_points):
                     x_start = X[i,j]
@@ -50,68 +53,32 @@ class FieldVisualizer:
                     dz = Ez_norm[i,j] * scale
 
                     # 3D arrow
-                    frame_data.append(go.Scatter3d(
+                    data.append(go.Scatter3d(
                         x=[x_start, x_start + dx],
                         y=[y_start, y_start + dy],
                         z=[z_start, z_start + dz],
                         mode='lines',
-                        line=dict(color=self.colors['vectors'], width=2),
+                        line=dict(color=self.colors['vectors'], width=2 * pulse_factor),
                         showlegend=False
                     ))
 
         # Add charge point
-        frame_data.append(go.Scatter3d(
+        data.append(go.Scatter3d(
             x=[field.position[0]],
             y=[field.position[1]],
             z=[field.position[2]],
             mode='markers',
             marker=dict(
-                size=15,
+                size=15 * pulse_factor,
                 color=self.colors['positive'] if field.charge > 0 else self.colors['negative']
             ),
             name='Point Charge'
         ))
 
-        # Create frames for animation
-        for frame_idx in range(n_frames):
-            frame_traces = []
-            # Smoother pulsation using sine wave
-            pulse_factor = 1 + 0.3 * np.sin(2 * np.pi * frame_idx / n_frames)
+        # Create figure
+        fig = go.Figure(data=data)
 
-            for trace in frame_data:
-                # Create new trace with updated properties
-                new_trace = go.Scatter3d(
-                    x=trace.x,
-                    y=trace.y,
-                    z=trace.z,
-                    mode=trace.mode,
-                    showlegend=trace.showlegend,
-                    name=trace.name
-                )
-
-                if trace.name == 'Point Charge':
-                    new_trace.marker = dict(
-                        size=15 * pulse_factor,
-                        color=trace.marker.color
-                    )
-                else:
-                    new_trace.line = dict(
-                        color=trace.line.color,
-                        width=2 * pulse_factor
-                    )
-
-                frame_traces.append(new_trace)
-
-            frames.append(go.Frame(
-                data=frame_traces,
-                name=f'frame{frame_idx}'
-            ))
-
-        # Create figure with initial data
-        fig = go.Figure(data=frame_data)
-        fig.frames = frames
-
-        # Update layout with animation and 3D settings
+        # Update layout with 3D settings
         fig.update_layout(
             scene=dict(
                 xaxis_title="X Position (m)",
@@ -125,26 +92,7 @@ class FieldVisualizer:
                 )
             ),
             showlegend=True,
-            title="3D Electric Field Visualization",
-            updatemenus=[{
-                'type': 'buttons',
-                'showactive': False,
-                'x': 0.1,
-                'y': 0,
-                'xanchor': 'right',
-                'yanchor': 'top',
-                'buttons': [{
-                    'label': 'Play',
-                    'method': 'animate',
-                    'args': [None, {
-                        'frame': {'duration': 30, 'redraw': True},  # Faster frame rate
-                        'fromcurrent': True,
-                        'transition': {'duration': 0},
-                        'mode': 'immediate',
-                        'loop': True  # Enable continuous looping
-                    }]
-                }]
-            }]
+            title="3D Electric Field Visualization"
         )
 
         return fig
