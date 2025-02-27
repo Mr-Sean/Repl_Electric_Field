@@ -5,12 +5,10 @@ from electric_field import ElectricField
 from visualization import FieldVisualizer
 from utils import format_scientific_notation
 
-st.set_page_config(
-    page_title="3D Electric Field Visualizer",
-    layout="wide"
-)
+st.set_page_config(page_title="3D Electric Field Visualizer", layout="wide")
 
 st.title("3D Electric Field Visualizer")
+
 
 def main():
     # Sidebar controls
@@ -18,22 +16,32 @@ def main():
 
     # Charge controls
     st.sidebar.subheader("Point Charge")
-    charge = st.sidebar.number_input(
-        "Charge (Coulombs)",
-        value=1.0e-9,
-        format="%.2e",
-        help="Enter the charge value in Coulombs"
-    )
+    charge = st.sidebar.number_input("Charge (Coulombs)",
+                                     value=1.0e-9,
+                                     format="%.2e",
+                                     help="Enter the charge value in Coulombs")
 
     # Position controls
     st.sidebar.subheader("Position (meters)")
     col1, col2, col3 = st.sidebar.columns(3)
     with col1:
-        x_pos = st.number_input("X", value=0.0, step=0.1, max_value=2.0, min_value=-2.0)
+        x_pos = st.number_input("X",
+                                value=0.0,
+                                step=0.1,
+                                max_value=2.0,
+                                min_value=-2.0)
     with col2:
-        y_pos = st.number_input("Y", value=0.0, step=0.1, max_value=2.0, min_value=-2.0)
+        y_pos = st.number_input("Y",
+                                value=0.0,
+                                step=0.1,
+                                max_value=2.0,
+                                min_value=-2.0)
     with col3:
-        z_pos = st.number_input("Z", value=0.0, step=0.1, max_value=2.0, min_value=-2.0)
+        z_pos = st.number_input("Z",
+                                value=0.0,
+                                step=0.1,
+                                max_value=2.0,
+                                min_value=-2.0)
 
     # Visualization controls
     st.sidebar.subheader("Visualization Settings")
@@ -47,8 +55,7 @@ def main():
     scene_data = visualizer.create_scene(field, show_vectors=show_vectors)
 
     # Display the 3D visualization
-    st.components.v1.html(
-        f"""
+    st.components.v1.html(f"""
         <div id="container" style="width: 100%; height: 600px;"></div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script>
@@ -183,8 +190,7 @@ def main():
             }});
         </script>
         """,
-        height=600
-    )
+                          height=600)
 
     # Field information
     st.subheader("Field Information")
@@ -201,6 +207,7 @@ def main():
         st.markdown("**Field Properties**")
         st.write("Field strength at origin:")
         st.write(f"{format_scientific_notation(E_magnitude)} N/C")
+
 
 if __name__ == "__main__":
     main()
